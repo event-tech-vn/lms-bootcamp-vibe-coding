@@ -1,448 +1,746 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-	<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-KZB3HF46SR"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-KZB3HF46SR');
-</script>
-	
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bootcamp Vibe Coding</title>
+    <title>Bootcamp Vibe Coding | Cole</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; margin: 0; }
-        .locked { filter: grayscale(1); opacity: 0.5; pointer-events: none; }
-        .video-container { position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 0.75rem; overflow: hidden; }
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .locked { filter: grayscale(1); opacity: 0.45; pointer-events: none; }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; background: #0f172a; border-radius: 0.75rem; overflow: hidden; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
         .active-lesson { border: 2px solid #6366f1; background-color: #f5f3ff; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         #lesson-list::-webkit-scrollbar { width: 5px; }
         #lesson-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
         #login-overlay {
             position: fixed; inset: 0; background: #0f172a; z-index: 9999;
             display: flex; align-items: center; justify-content: center; padding: 20px;
         }
         .hidden { display: none !important; }
-        
         .btn-login {
             background-color: #818cf8; color: #000; font-weight: 700;
             padding: 0.75rem; border-radius: 0.75rem; width: 100%;
             transition: all 0.2s ease; cursor: pointer;
         }
+        .btn-login:hover:not(:disabled) { background-color: #6366f1; color: #fff; }
+        .btn-login:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        /* Video loading */
+        .video-loading-overlay {
+            position: absolute; inset: 0; background: #0f172a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2;
+            transition: opacity 0.3s ease;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 36px; height: 36px; border: 3px solid #334155; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+
+        /* Shake on error */
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 60%{transform:translateX(6px)} }
+        .shake { animation: shake 0.35s ease; }
+
+        /* Mobile sidebar */
+        @media (max-width: 1023px) {
+            #sidebar-panel { display: none; }
+            #sidebar-panel.open { display: block !important; }
+        }
+
+        /* Congrats overlay */
+        #congrats-overlay {
+            position: fixed; inset: 0; background: rgba(15,23,42,0.88); z-index: 9998;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        @keyframes popIn { 0%{transform:scale(0.85);opacity:0} 100%{transform:scale(1);opacity:1} }
+        .pop-in { animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+        /* Lockout warning */
+        #lockout-msg { transition: all 0.3s; }
+
+        /* Progress bar transition */
+        #progress-bar { transition: width 0.5s ease; }
+
+        /* Prev btn */
+        #prev-btn:disabled { opacity: 0.38; cursor: not-allowed; }
     </style>
 </head>
 <body class="text-slate-800">
 
-    <div id="login-overlay">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-900">Đăng nhập lớp học Bootcamp Vibe Coding</h2>
-                <p class="text-slate-500 text-sm mt-1">Nhập thông tin tài khoản được cấp</p>
+<!-- ============================================================
+     LOGIN OVERLAY
+============================================================ -->
+<div id="login-overlay">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200">
+        <div class="text-center mb-6">
+            <div class="flex items-center justify-center gap-2 mb-3">
+                <i data-lucide="terminal" class="text-indigo-500 w-8 h-8"></i>
             </div>
-<!-- Phần Đăng nhập -->
-            <form onsubmit="event.preventDefault(); handleManualLogin();" class="space-y-4">
+            <h2 class="text-2xl font-bold text-slate-900">Đăng nhập lớp học</h2>
+            <p class="text-slate-500 text-sm mt-1">Bootcamp Vibe Coding</p>
+        </div>
+
+        <form onsubmit="event.preventDefault(); handleManualLogin();" class="space-y-4">
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tên đăng nhập</label>
-                <input type="text" id="login-name" class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Tên đăng nhập" required>
+                <input type="text" id="login-name" autocomplete="username"
+                    class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Tên đăng nhập" required>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email học viên</label>
-                <input type="email" id="login-email" class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Email" required>
+                <input type="email" id="login-email" autocomplete="email"
+                    class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Email" required>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Mật khẩu</label>
-                <input type="password" id="login-pass" class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Mật khẩu" required>
+                <div class="relative">
+                    <input type="password" id="login-pass" autocomplete="current-password"
+                        class="w-full p-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-indigo-500 pr-12"
+                        placeholder="Mật khẩu" required>
+                    <button type="button" onclick="togglePassword()"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors">
+                        <i id="eye-icon" data-lucide="eye" class="w-5 h-5"></i>
+                    </button>
+                </div>
             </div>
-            
-            <button type="submit" class="btn-login shadow-lg">
+
+            <!-- Lockout warning (shown when too many attempts) -->
+            <div id="lockout-msg" class="hidden text-amber-700 text-xs text-center font-bold p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                ⚠️ Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau <span id="lockout-timer">30</span>s
+            </div>
+
+            <button type="submit" id="login-btn" class="btn-login shadow-lg">
                 Đăng nhập
             </button>
 
             <div class="text-center mt-4">
-                <a href="#" target="_blank" class="text-sm text-indigo-600 hover:underline">Quên mật khẩu? - Liên hệ email: event.tech.vn@gmail.com</a>
+                <a href="mailto:event.tech.vn@gmail.com"
+                    class="text-sm text-indigo-600 hover:underline">
+                    Quên mật khẩu? Liên hệ: event.tech.vn@gmail.com
+                </a>
             </div>
         </form>
-            <p id="login-error" class="text-red-500 text-xs text-center mt-4 hidden font-bold">Sai thông tin đăng nhập!</p>
-        </div>
+
+        <p id="login-error" class="text-red-500 text-xs text-center mt-4 hidden font-bold">
+            ❌ Sai thông tin đăng nhập!
+        </p>
     </div>
+</div>
 
-    <div id="main-content" class="hidden">
-        <header class="bg-slate-900 text-white py-4 px-6 flex justify-between items-center sticky top-0 z-50">
-            	<h1 class="text-xl font-bold flex items-center gap-3">
-    			<i data-lucide="terminal" class="text-indigo-400 w-10 h-10"></i> 
-    			Khóa học Bootcamp Vibe Coding
-		</h1>
-            <div class="flex items-center gap-4 text-right">
-                <div class="flex flex-col border-r border-slate-700 pr-4">
-                    <span id="display-user-name" class="text-sm font-bold text-indigo-400"></span>
-                    <button onclick="handleLogout()" class="text-[10px] text-red-400 hover:underline">Đăng xuất</button>
-                </div>
-                <div class="hidden sm:block">
-                    <p class="text-[10px] text-slate-400 uppercase">Tiến độ: <span id="progress-text">1/20</span></p>
-                    <div class="w-24 bg-slate-700 rounded-full h-1.5 mt-1">
-                        <div id="progress-bar" class="bg-indigo-500 h-1.5 rounded-full" style="width: 5%"></div>
-                    </div>
-                </div>
+<!-- ============================================================
+     MAIN CONTENT
+============================================================ -->
+<div id="main-content" class="hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white py-4 px-6 flex justify-between items-center sticky top-0 z-50 shadow-lg">
+        <h1 class="text-xl font-bold flex items-center gap-3">
+            <i data-lucide="terminal" class="text-indigo-400 w-8 h-8 shrink-0"></i>
+            Khóa học Bootcamp Vibe Coding
+        </h1>
+        <div class="flex items-center gap-4">
+            <div class="flex flex-col border-r border-slate-700 pr-4 text-right">
+                <span id="display-user-name" class="text-sm font-bold text-indigo-400 leading-snug"></span>
+                <button onclick="handleLogout()" class="text-[10px] text-red-400 hover:text-red-300 hover:underline text-right leading-snug transition-colors">
+                    Đăng xuất
+                </button>
             </div>
-        </header>
-
-        <div class="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
-            <div class="lg:w-2/3">
-                <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200">
-                    <div class="video-container mb-4">
-                        <iframe id="main-video" src="" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
-                    </div>
-                    <h2 id="current-lesson-title" class="text-xl font-bold text-slate-900 mb-1 underline decoration-indigo-500 underline-offset-8">Buổi học</h2>
-                    <p id="current-lesson-desc" class="text-slate-500 text-sm mb-6"></p>
-                    
-                    <div class="flex flex-col sm:flex-row gap-3 border-t pt-4">
-                        <button id="complete-btn" onclick="completeLesson()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
-                            <i data-lucide="check-circle"></i> Hoàn thành & Sang bài tiếp theo
-                        </button>
-                        <button onclick="resetProgress()" class="px-4 py-2 text-slate-400 text-xs hover:text-red-500">Xóa tiến độ</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="lg:w-1/3">
-                <div class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
-                    <div class="p-4 bg-slate-50 border-b font-bold text-xs uppercase tracking-widest text-slate-500 flex justify-between">
-                        <span>Lộ trình bài học</span>
-                        <i data-lucide="list-video" class="w-4 h-4 text-indigo-600"></i>
-                    </div>
-                    <div id="lesson-list" class="max-h-[550px] overflow-y-auto p-2 space-y-2 text-sm"></div>
+            <div class="hidden sm:block">
+                <p class="text-[10px] text-slate-400 uppercase">Tiến độ: <span id="progress-text">0/11</span></p>
+                <div class="w-28 bg-slate-700 rounded-full h-1.5 mt-1">
+                    <div id="progress-bar" class="bg-indigo-500 h-1.5 rounded-full" style="width: 0%"></div>
                 </div>
             </div>
         </div>
+    </header>
+
+    <!-- Body -->
+    <div class="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+
+        <!-- Left: Video + Controls -->
+        <div class="lg:w-2/3">
+            <div class="bg-white p-4 rounded-xl shadow-md border border-slate-200">
+
+                <!-- Video -->
+                <div class="video-container mb-4">
+                    <div id="video-loading" class="video-loading-overlay">
+                        <div class="spinner"></div>
+                        <p class="text-xs text-slate-500">Đang tải video...</p>
+                    </div>
+                    <iframe id="main-video" src="" frameborder="0"
+                        allow="autoplay; fullscreen" allowfullscreen></iframe>
+                </div>
+
+                <!-- Lesson title + counter -->
+                <div class="flex items-start justify-between gap-3 mb-1">
+                    <h2 id="current-lesson-title"
+                        class="text-xl font-bold text-slate-900 underline decoration-indigo-500 underline-offset-8 flex-1">
+                    </h2>
+                    <span id="lesson-counter"
+                        class="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full font-bold whitespace-nowrap mt-1 shrink-0">
+                    </span>
+                </div>
+
+                <!-- Lesson description -->
+                <div id="current-lesson-desc" class="text-slate-500 text-sm mt-3 mb-6"></div>
+
+                <!-- Navigation buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 border-t pt-4">
+                    <button id="prev-btn" onclick="prevLesson()" disabled
+                        class="px-4 py-3 border border-slate-300 text-slate-600 rounded-xl hover:bg-slate-50 font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="chevron-left" class="w-4 h-4"></i> Bài trước
+                    </button>
+                    <button id="complete-btn" onclick="completeLesson()"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                        <span id="complete-btn-text">Hoàn thành &amp; Sang bài tiếp theo</span>
+                    </button>
+                </div>
+
+                <!-- Reset progress (less prominent, placed separately) -->
+                <div class="flex justify-end mt-3">
+                    <button onclick="resetProgress()"
+                        class="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1.5 transition-colors">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Xóa tiến độ học
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right: Lesson Sidebar -->
+        <div class="lg:w-1/3">
+
+            <!-- Mobile toggle button -->
+            <button id="sidebar-toggle-btn" onclick="toggleSidebar()"
+                class="w-full lg:hidden mb-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow">
+                <i data-lucide="list-video" class="w-4 h-4 text-indigo-400"></i>
+                <span id="sidebar-toggle-text">Xem lộ trình bài học ▾</span>
+            </button>
+
+            <div id="sidebar-panel" class="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+                <div class="p-4 bg-slate-50 border-b font-bold text-xs uppercase tracking-widest text-slate-500 flex justify-between items-center">
+                    <span>Lộ trình bài học</span>
+                    <i data-lucide="list-video" class="w-4 h-4 text-indigo-600"></i>
+                </div>
+                <div id="lesson-list" class="max-h-[580px] overflow-y-auto p-2 space-y-2 text-sm"></div>
+            </div>
+        </div>
+
     </div>
+</div>
 
-    <script>
-        // Add User - Thêm người dùng - Thông tin người dùng
-        const VALID_USERS = [
-            { name: "A", email: "a@gmail.com", pass: "123" },
-            { name: "Admin", email: "admin@gmail.com", pass: "admin123" },
-            { name: "Event Tech", email: "event.tech.vn@gmail.com", pass: "0822638227" },
-            { name: "Đoàn Hoàng Giang", email: "giangdoan165@gmail.com", pass: "0385554765" },
-            { name: "Vũ Hữu Thông", email: "vuhuuthong08@gmail.com", pass: "0763421816" },
-            { name: "Ngô Thị Anh Thư", email: "anhthungo007@gmail.com", pass: "0358693322" }
-        ];
+<!-- ============================================================
+     CONGRATS MODAL
+============================================================ -->
+<div id="congrats-overlay" class="hidden">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center pop-in">
+        <div class="text-6xl mb-4">🎉</div>
+        <h2 class="text-2xl font-bold text-slate-900 mb-2">Chúc mừng!</h2>
+        <p class="text-slate-600 mb-1">Bạn đã hoàn thành toàn bộ</p>
+        <p class="text-indigo-600 font-bold mb-6">Bootcamp Vibe Coding!</p>
+        <button onclick="document.getElementById('congrats-overlay').classList.add('hidden')"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3 rounded-xl transition-colors w-full">
+            Xem lại các bài học
+        </button>
+    </div>
+</div>
 
-        const lessons = [
-    { 
-        id: 1, 
-        title: "Buổi 1: Tìm hiểu về Trí tuệ nhân tạo tạo sinh", 
-        videoId: "1L_jLBgWNWowHU5Msv613x2YQxmGooNxd", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🚀 <b>Khởi động hành trình Vibe Coding!</b> Mở đầu khóa học, chúng ta sẽ cùng khám phá bức tranh toàn cảnh về Trí tuệ nhân tạo tạo sinh (GenAI) và cách nó đang thay đổi hoàn toàn cục diện ngành công nghệ.</p>
-            <br>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Tổng quan GenAI:</b> Hiểu rõ bản chất, sức mạnh và giới hạn của các mô hình ngôn ngữ lớn (LLMs).<br>
-            - <b>Tăng năng suất x5:</b> Cách các lập trình viên hiện đại đang sử dụng AI để cắt giảm 80% thời gian code.<br>
-            - <b>Thiết lập tư duy:</b> Chuyển đổi từ "người viết code" sang "người điều phối AI".</p>
-            <p><i>Chuẩn bị sẵn sàng tâm thế để bước vào kỷ nguyên lập trình mới!</i></p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1O3ofeBbYy7-ESN02BUrdH7w69_aoV0Wq/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 1</a></p>
-            
-        </div>`
-    },
-    { 
-        id: 2, 
-        title: "Buổi 2: Giới thiệu về Vibe Code", 
-        videoId: "1uJG7DunKwsk8ryZilqAcFo7skCjqcJ0A", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🧠 <b>Làm chủ tư duy Vibe Code!</b> Đây là chìa khóa cốt lõi của toàn bộ Bootcamp. Bạn sẽ học cách "trò chuyện" với AI để biến ý tưởng thành sản phẩm thực tế.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Định nghĩa Vibe Code:</b> Nghệ thuật kết hợp giữa yêu cầu kinh doanh, tiêu chuẩn kỹ thuật và prompt.<br>
-            - <b>Kỹ thuật Prompting:</b> Chuỗi lệnh (prompt chains), cách cung cấp context chuẩn xác để AI không bị "ảo giác".<br>
-            - <b>Quy trình phát triển:</b> Đi từ Ý tưởng (Idea) → Prototype → MVP hoàn chỉnh với sự hỗ trợ của AI.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1wjl2Pgtr3Qjv6zl2le1T9FHUJFaezrOz/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 2</a></p>
-            <br>
-            <p><b>Bài tập về nhà:</b><br>
-            - Sử dụng Google AI Studio, tạo 1 ứng dụng (khuyến khích có AI) thực tiễn, giải quyết 1 paint point mà chính bạn (hoặc người khác) đang gặp phải. Vấn đề phải lặp đi lặp lại và ứng dụng tạo ra sẽ giúp giải quyết vấn đề đó.
-            <br><br>
-            <p><b>Nộp bài:</b><br>
-            1. Prompt ban đầu sử dụng để AI tạo ứng dụng.<br>
-            2. Link chia sẻ ứng dụng do AI tạo ra. <br>
-            - Tất cả để trong 1 file google docs rồi tải lên link google driver dưới đây.<br>
-            <br>
-            <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1rsTde1T2GMxmYEjyvqwJw9vlaPdozsZO?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
-        </div>`
-    },
-    { 
-        id: 3, 
-        title: "Buổi 3: Vibe Code với Replit", 
-        videoId: "1QWZZpJOM6UnYoyDIV_wCkO8WrOOEuaSw", 
-        desc: `<div style="line-height: 1.6;">
-            <p>⚡ <b>Prototyping thần tốc!</b> Buổi học thực hành đầu tiên giúp bạn tạo ra những sản phẩm chạy được ngay trên trình duyệt mà không cần cài đặt phức tạp.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Làm quen Replit:</b> Nền tảng Cloud IDE tích hợp AI mạnh mẽ.<br>
-            - <b>Xây dựng MVP nhanh:</b> Tạo ngay một ứng dụng cơ bản có giao diện và logic tương tác chỉ bằng ngôn ngữ tự nhiên.<br>
-            - <b>Deploy & Share:</b> Đưa sản phẩm của bạn lên internet và chia sẻ cho người dùng trải nghiệm tức thì.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1WOQB8TVGdo2OplTGpWRDghCKjXOwK11_/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 3</a></p>
-            <br>
-            <p><b>Bài tập về nhà:</b><br>
-            - Hoàn thiện các bài vibe code trên lớp, bổ sung tính năng mới. Thử thêm tính năng kết nối tới 1 trong các Connectors hỗ trợ bởi Replit (vd Gmail, Google Drive, v.v)
-            <br>
-            - Nộp bài:
-            - Link ứng dụng (không cần publish), ví dụ: <p><a href="https://replit.com/@dttung/TetrisBlast" target="_blank" style="color:#6366f1; text-decoration: underline;">https://replit.com/@dttung/TetrisBlast</a></p>
-            <br>
-            <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1r43vzSmyEqWsLsrl1EPVwu6AnAhC-fw7?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
-        </div>`
-    },
-    { 
-        id: 3.1, 
-        title: "Buổi 3.1: Bổ trợ kiến thức", 
-        videoId: "1bg6XQ225UH-GXoJzaUkpwfYsWVNDax42", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🛠️ <b>Trang bị vũ khí nền tảng!</b> Trước khi tiến vào các công cụ hạng nặng, chúng ta cần củng cố lại các khái niệm nền tảng về hệ thống và luồng dữ liệu.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Kiến trúc App cơ bản:</b> Hiểu rõ cách Client, Server và Database giao tiếp với nhau.<br>
-            - <b>Quản lý mã nguồn (Git/GitHub):</b> Lưu trữ, theo dõi các phiên bản code do AI tạo ra để dễ dàng rollback khi cần.<br>
-            - <b>Debug cơ bản:</b> Cách đọc lỗi và yêu cầu AI sửa lỗi một cách thông minh.</p>
-        </div>`
-    },
-    { 
-        id: 4, 
-        title: "Buổi 4: Vibe Code với Cursor cơ bản", 
-        videoId: "1K5GPRJYz3Fud3MfaFvesFs0FJ2wdXMyJ", 
-        desc: `<div style="line-height: 1.6;">
-            <p>💻 <b>Bước vào thế giới Cursor!</b> Trình soạn thảo mã nguồn được thiết kế riêng cho kỷ nguyên AI, vũ khí bí mật của các kỹ sư hàng đầu hiện nay.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Cài đặt & Setup:</b> Cấu hình Cursor Editor tối ưu hóa cho dự án của bạn.<br>
-            - <b>Tính năng cốt lõi:</b> Làm quen với Cmd+K (Generate), Cmd+L (Chat) và tính năng dự đoán code (Tab Autocomplete).<br>
-            - <b>Codebase Context:</b> Cách Cursor hiểu toàn bộ dự án của bạn để đưa ra gợi ý siêu chính xác.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1Qio3jqyTtK4F2Ff0cc2xqJVK350RPta9/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 4</a></p>
-            <p>📚 <b>Tài liệu:</b> <a href="https://docs.google.com/document/d/1kM4WQtpuygijEyj1WuSSmIvYZ4Km_NE6w0SpBXQST6c/edit?usp=sharing" target="_blank" style="color:#6366f1; text-decoration: underline;">Prompt và Link thầy nhắc đến trong Buổi 4</a></p>
-        </div>`
-    },
-    { 
-        id: 5, 
-        title: "Buổi 5: Vibe Code với Cursor nâng cao: full-stack web app", 
-        videoId: "1mXVwtD2ZZLKsmo8r5c9soWqW53HHwBJA", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🌐 <b>Xây dựng Web Full-stack thực chiến!</b> Đẩy giới hạn của Cursor lên mức tối đa để hoàn thiện một ứng dụng web từ Front-end đến Back-end và Database.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Môi trường Web:</b> Chuẩn bị môi trường phát triển web tiêu chuẩn.<br>
-            - <b>MCP Tools:</b> Tích hợp các công cụ Model Context Protocol cần thiết để mở rộng khả năng của AI.<br>
-            - <b>Thực hành:</b> Xây dựng ứng dụng web full-stack có lưu trữ dữ liệu và tính năng Auth cơ bản.<br>
-            - <b>Tips & Tricks:</b> Các mẹo "sửa – lặp – kiểm chứng" nâng cao trên Cursor.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/16-ZmDBAaPS8s3eP8cKxCpWwhx67GhG38/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 5</a></p>
-            <br>
-            <p><b>Bài tập về nhà:</b><br>
-            - Mọi người xem cuối slides (từ trang 18) và hoàn thành Sprint 1 nhé. Clone repo này về để bắt đầu.
-            <br>
-            - Trong project starter có các rules và commands tùy chỉnh cho project này (đọc kỹ để sử dụng), file PB.md mô tả backlog tổng quan, thư mục sprints chứa sprint backlog và user stories cho sprint 1. Từ đó mọi người hãy vibe code hoàn thành các tasks của Sprint 1 nhé. Yêu cầu: hoàn thành sprint 1 trước khi sang buổi số 6.
-            <br><br>
-            <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1ZXAn7IRfpd5lkSNw9klA2K0NUO0D4yzV?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
-        </div>`
-    },
-    { 
-        id: 6, 
-        title: "Buổi 6: Vibe Code với Claude Code cơ bản", 
-        videoId: "19JajlTlB-hN43OOUPvtEH7RbX46NloiG", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🤖 <b>Sức mạnh của Claude Code!</b> Khám phá công cụ AI coding thế hệ mới từ Anthropic, nổi tiếng với khả năng suy luận logic và viết code cực kỳ sạch sẽ.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Giới thiệu Claude Code:</b> Cài đặt và tìm hiểu các tính năng cơ bản, sự khác biệt so với Cursor.<br>
-            - <b>Làm việc qua CLI:</b> Tương tác với Claude trực tiếp từ Terminal để tự động hóa các tác vụ phức tạp.<br>
-            - <b>Nâng cấp dự án:</b> Tiếp tục sử dụng Claude Code để hoàn thiện và tối ưu hóa ứng dụng web full-stack của bạn.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/14Nynx9tWH78rsUXZOPerkbvgCb1sp9Oa/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 6</a></p>
-            
-        </div>`
-    },
-    { 
-        id: 7, 
-        title: "Buổi 7: Vibe Code với Claude Code nâng cao: mobile app", 
-        videoId: "10odUYwvd17kLG2leMty_WjtQIGEYtlJa", 
-        desc: `<div style="line-height: 1.6;">
-            <p>📱 <b>Chinh phục Mobile App với AI!</b> Mang ý tưởng của bạn lên App Store và Google Play bằng cách tận dụng khả năng viết code đa nền tảng của Claude.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Môi trường Mobile:</b> Chuẩn bị môi trường phát triển ứng dụng di động (React Native/Expo hoặc Flutter).<br>
-            - <b>Xây dựng Mobile App:</b> Prompting Claude để tạo ra ứng dụng di động với đầy đủ chức năng, logic và điều hướng.<br>
-            - <b>Tips & Tricks:</b> Kỹ thuật xử lý các lỗi đặc thù trên môi trường mobile với Claude Code.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1Lcn5czwJQA_p1cFUogPX05fgAqyzvKaq/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 7</a></p>
-            <br>
-        </div>`
-    },
-    { 
-        id: 8, 
-        title: "Buổi 8: Vibe Design", 
-        videoId: "1EYiD4UNrOy9fMIoolHRDESbIHx61aMGP", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🎨 <b>Thổi hồn vào sản phẩm với Vibe Design!</b> Một sản phẩm tốt không chỉ chạy được mà còn phải có UI/UX mượt mà, chuyên nghiệp và thân thiện.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Nguyên lý UI/UX:</b> Các quy tắc cơ bản và cách học tập từ những thiết kế nổi tiếng đã thành công.<br>
-            - <b>Vibe Design với Figma:</b> Phác thảo ý tưởng nhanh, clone và tùy biến thiết kế cho ứng dụng của mình.<br>
-            - <b>Từ Design ra Code:</b> Sử dụng Cursor/Claude và các MCP tools để biến giao diện thiết kế thành code frontend chuẩn xác.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1v2EH1Rmi5Nr_bfVbU7ilhFYmTBlZ3IMd/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 8</a></p>
-            <br>
-        </div>`
-    },
-    { 
-        id: 9, 
-        title: "Buổi 9: Vibe Test", 
-        videoId: "1ddhQYrh-4nFl_71uaoXe7dfkdDiSbPGr", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🛡️ <b>Đảm bảo chất lượng tuyệt đối!</b> Đừng để sản phẩm đầy lỗi khi ra mắt. Hãy để AI giúp bạn kiểm thử mọi ngóc ngách của ứng dụng.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Test-First Driven với AI:</b> Quy trình kiểm soát chất lượng tự động, bắt lỗi trước khi chúng xảy ra.<br>
-            - <b>Tự động sinh Test:</b> Yêu cầu AI viết Unit test, Integration test và UI testing tự động cho dự án.<br>
-            - <b>Review & Refactor:</b> Nhờ AI đánh giá chất lượng mã nguồn, tối ưu hóa hiệu suất và bảo mật.</p>
-            <br>
-            <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1JKd8ZeXmj_iF7ENMTQ-0PRro5XyD1jaQ/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 9</a></p>
-            <br>
-            <p><b>Bài tập về nhà:</b><br>
-            - Hoàn thiện 1 trong các dự án đã học trong khóa học (từ bài 4)<br>
-            - Hoặc tự làm một dự án của chính mình<br>
-            - Nộp sản phẩm: Bản Word gồm mô tả qua về sản phẩm (vài ảnh minh họa) và link Github mã nguồn (Nếu file Readme của Github đã mô tả và có ảnh minh họa rồi thì chỉ cần link Github)<br>
-            <br>
-            <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1-Gb96rXxkEd170iPdgGJ5scyImyOSsN9?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
-            
-        </div>`
-    },
-    { 
-        id: 10, 
-        title: "Buổi 10: Demo Vibe Project", 
-        videoId: "1CalYP7GlNv0kr9Z4mES0IxoTEc7HLCRJ", 
-        desc: `<div style="line-height: 1.6;">
-            <p>🏆 <b>Bảo vệ và vinh danh dự án (Demo Day)!</b> Đây là khoảnh khắc bạn trình làng MVP do chính mình tạo ra - từ số 0 đến sản phẩm thực tế chỉ sau 10 buổi học.</p>
-            <p><b>Nội dung chính:</b><br>
-            - <b>Trình bày dự án:</b> Show case sản phẩm Web/Mobile App hoàn chỉnh của bạn trước lớp.<br>
-            - <b>Feedback chuyên gia:</b> Nhận nhận xét, góp ý tối ưu sản phẩm từ giảng viên và các học viên khác.<br>
-            - <b>Bước đi tiếp theo:</b> Hướng dẫn đưa dự án thực tế vào thị trường, tiếp tục duy trì và phát triển sản phẩm với AI.</p>
-        </div>`
+<!-- ============================================================
+     JAVASCRIPT
+     ⚠️ CẢNH BÁO BẢO MẬT:
+     File này sử dụng xác thực phía client (client-side auth).
+     Bất kỳ ai mở DevTools đều có thể xem thông tin đăng nhập.
+     Khuyến nghị: Chuyển sang Firebase Auth, Supabase, hoặc backend
+     riêng trước khi triển khai quy mô lớn.
+============================================================ -->
+<script>
+    /*
+     * =====================================================
+     * DANH SÁCH HỌC VIÊN - USER LIST
+     * Thêm / sửa / xóa tài khoản học viên tại đây.
+     * ⚠️ Lưu ý: KHÔNG dùng số điện thoại làm mật khẩu thật.
+     * =====================================================
+     */
+    const VALID_USERS = [
+        // { name: "A", email: "a@gmail.com", pass: "123" }, // ← TÀI KHOẢN TEST - ĐÃ TẮT
+        { name: "Admin",             email: "admin@gmail.com",           pass: "admin123"   },
+        { name: "Event Tech",        email: "event.tech.vn@gmail.com",   pass: "0822638227" },
+        { name: "Đoàn Hoàng Giang",  email: "giangdoan165@gmail.com",    pass: "0385554765" },
+        { name: "Vũ Hữu Thông",      email: "vuhuuthong08@gmail.com",    pass: "0763421816" }
+    ];
+
+    /*
+     * =====================================================
+     * DANH SÁCH BÀI HỌC - LESSON LIST
+     * Tất cả nội dung bài học giữ nguyên 100%.
+     * =====================================================
+     */
+    const lessons = [
+        { 
+            id: 1, 
+            title: "Buổi 1: Tìm hiểu về Trí tuệ nhân tạo tạo sinh", 
+            videoId: "1L_jLBgWNWowHU5Msv613x2YQxmGooNxd", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🚀 <b>Khởi động hành trình Vibe Coding!</b> Mở đầu khóa học, chúng ta sẽ cùng khám phá bức tranh toàn cảnh về Trí tuệ nhân tạo tạo sinh (GenAI) và cách nó đang thay đổi hoàn toàn cục diện ngành công nghệ.</p>
+                <br>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Tổng quan GenAI:</b> Hiểu rõ bản chất, sức mạnh và giới hạn của các mô hình ngôn ngữ lớn (LLMs).<br>
+                - <b>Tăng năng suất x5:</b> Cách các lập trình viên hiện đại đang sử dụng AI để cắt giảm 80% thời gian code.<br>
+                - <b>Thiết lập tư duy:</b> Chuyển đổi từ "người viết code" sang "người điều phối AI".</p>
+                <p><i>Chuẩn bị sẵn sàng tâm thế để bước vào kỷ nguyên lập trình mới!</i></p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1O3ofeBbYy7-ESN02BUrdH7w69_aoV0Wq/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 1</a></p>
+            </div>`
+        },
+        { 
+            id: 2, 
+            title: "Buổi 2: Giới thiệu về Vibe Code", 
+            videoId: "1uJG7DunKwsk8ryZilqAcFo7skCjqcJ0A", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🧠 <b>Làm chủ tư duy Vibe Code!</b> Đây là chìa khóa cốt lõi của toàn bộ Bootcamp. Bạn sẽ học cách "trò chuyện" với AI để biến ý tưởng thành sản phẩm thực tế.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Định nghĩa Vibe Code:</b> Nghệ thuật kết hợp giữa yêu cầu kinh doanh, tiêu chuẩn kỹ thuật và prompt.<br>
+                - <b>Kỹ thuật Prompting:</b> Chuỗi lệnh (prompt chains), cách cung cấp context chuẩn xác để AI không bị "ảo giác".<br>
+                - <b>Quy trình phát triển:</b> Đi từ Ý tưởng (Idea) → Prototype → MVP hoàn chỉnh với sự hỗ trợ của AI.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1wjl2Pgtr3Qjv6zl2le1T9FHUJFaezrOz/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 2</a></p>
+                <br>
+                <p><b>Bài tập về nhà:</b><br>
+                - Sử dụng Google AI Studio, tạo 1 ứng dụng (khuyến khích có AI) thực tiễn, giải quyết 1 paint point mà chính bạn (hoặc người khác) đang gặp phải. Vấn đề phải lặp đi lặp lại và ứng dụng tạo ra sẽ giúp giải quyết vấn đề đó.
+                <br><br>
+                <p><b>Nộp bài:</b><br>
+                1. Prompt ban đầu sử dụng để AI tạo ứng dụng.<br>
+                2. Link chia sẻ ứng dụng do AI tạo ra. <br>
+                - Tất cả để trong 1 file google docs rồi tải lên link google driver dưới đây.<br>
+                <br>
+                <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1rsTde1T2GMxmYEjyvqwJw9vlaPdozsZO?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
+            </div>`
+        },
+        { 
+            id: 3, 
+            title: "Buổi 3: Vibe Code với Replit", 
+            videoId: "1QWZZpJOM6UnYoyDIV_wCkO8WrOOEuaSw", 
+            desc: `<div style="line-height: 1.6;">
+                <p>⚡ <b>Prototyping thần tốc!</b> Buổi học thực hành đầu tiên giúp bạn tạo ra những sản phẩm chạy được ngay trên trình duyệt mà không cần cài đặt phức tạp.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Làm quen Replit:</b> Nền tảng Cloud IDE tích hợp AI mạnh mẽ.<br>
+                - <b>Xây dựng MVP nhanh:</b> Tạo ngay một ứng dụng cơ bản có giao diện và logic tương tác chỉ bằng ngôn ngữ tự nhiên.<br>
+                - <b>Deploy &amp; Share:</b> Đưa sản phẩm của bạn lên internet và chia sẻ cho người dùng trải nghiệm tức thì.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1WOQB8TVGdo2OplTGpWRDghCKjXOwK11_/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 3</a></p>
+                <br>
+                <p><b>Bài tập về nhà:</b><br>
+                - Hoàn thiện các bài vibe code trên lớp, bổ sung tính năng mới. Thử thêm tính năng kết nối tới 1 trong các Connectors hỗ trợ bởi Replit (vd Gmail, Google Drive, v.v)
+                <br>
+                - Nộp bài:
+                - Link ứng dụng (không cần publish), ví dụ: <p><a href="https://replit.com/@dttung/TetrisBlast" target="_blank" style="color:#6366f1; text-decoration: underline;">https://replit.com/@dttung/TetrisBlast</a></p>
+                <br>
+                <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1r43vzSmyEqWsLsrl1EPVwu6AnAhC-fw7?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
+            </div>`
+        },
+        { 
+            id: "3.1", 
+            title: "Buổi 3.1: Bổ trợ kiến thức", 
+            videoId: "1bg6XQ225UH-GXoJzaUkpwfYsWVNDax42", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🛠️ <b>Trang bị vũ khí nền tảng!</b> Trước khi tiến vào các công cụ hạng nặng, chúng ta cần củng cố lại các khái niệm nền tảng về hệ thống và luồng dữ liệu.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Kiến trúc App cơ bản:</b> Hiểu rõ cách Client, Server và Database giao tiếp với nhau.<br>
+                - <b>Quản lý mã nguồn (Git/GitHub):</b> Lưu trữ, theo dõi các phiên bản code do AI tạo ra để dễ dàng rollback khi cần.<br>
+                - <b>Debug cơ bản:</b> Cách đọc lỗi và yêu cầu AI sửa lỗi một cách thông minh.</p>
+            </div>`
+        },
+        { 
+            id: 4, 
+            title: "Buổi 4: Vibe Code với Cursor cơ bản", 
+            videoId: "1K5GPRJYz3Fud3MfaFvesFs0FJ2wdXMyJ", 
+            desc: `<div style="line-height: 1.6;">
+                <p>💻 <b>Bước vào thế giới Cursor!</b> Trình soạn thảo mã nguồn được thiết kế riêng cho kỷ nguyên AI, vũ khí bí mật của các kỹ sư hàng đầu hiện nay.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Cài đặt &amp; Setup:</b> Cấu hình Cursor Editor tối ưu hóa cho dự án của bạn.<br>
+                - <b>Tính năng cốt lõi:</b> Làm quen với Cmd+K (Generate), Cmd+L (Chat) và tính năng dự đoán code (Tab Autocomplete).<br>
+                - <b>Codebase Context:</b> Cách Cursor hiểu toàn bộ dự án của bạn để đưa ra gợi ý siêu chính xác.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1Qio3jqyTtK4F2Ff0cc2xqJVK350RPta9/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 4</a></p>
+                <p>📚 <b>Tài liệu:</b> <a href="https://docs.google.com/document/d/1kM4WQtpuygijEyj1WuSSmIvYZ4Km_NE6w0SpBXQST6c/edit?usp=sharing" target="_blank" style="color:#6366f1; text-decoration: underline;">Prompt và Link thầy nhắc đến trong Buổi 4</a></p>
+            </div>`
+        },
+        { 
+            id: 5, 
+            title: "Buổi 5: Vibe Code với Cursor nâng cao: full-stack web app", 
+            videoId: "1mXVwtD2ZZLKsmo8r5c9soWqW53HHwBJA", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🌐 <b>Xây dựng Web Full-stack thực chiến!</b> Đẩy giới hạn của Cursor lên mức tối đa để hoàn thiện một ứng dụng web từ Front-end đến Back-end và Database.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Môi trường Web:</b> Chuẩn bị môi trường phát triển web tiêu chuẩn.<br>
+                - <b>MCP Tools:</b> Tích hợp các công cụ Model Context Protocol cần thiết để mở rộng khả năng của AI.<br>
+                - <b>Thực hành:</b> Xây dựng ứng dụng web full-stack có lưu trữ dữ liệu và tính năng Auth cơ bản.<br>
+                - <b>Tips &amp; Tricks:</b> Các mẹo "sửa – lặp – kiểm chứng" nâng cao trên Cursor.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/16-ZmDBAaPS8s3eP8cKxCpWwhx67GhG38/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 5</a></p>
+                <br>
+                <p><b>Bài tập về nhà:</b><br>
+                - Mọi người xem cuối slides (từ trang 18) và hoàn thành Sprint 1 nhé. Clone repo này về để bắt đầu.
+                <br>
+                - Trong project starter có các rules và commands tùy chỉnh cho project này (đọc kỹ để sử dụng), file PB.md mô tả backlog tổng quan, thư mục sprints chứa sprint backlog và user stories cho sprint 1. Từ đó mọi người hãy vibe code hoàn thành các tasks của Sprint 1 nhé. Yêu cầu: hoàn thành sprint 1 trước khi sang buổi số 6.
+                <br><br>
+                <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1ZXAn7IRfpd5lkSNw9klA2K0NUO0D4yzV?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
+            </div>`
+        },
+        { 
+            id: 6, 
+            title: "Buổi 6: Vibe Code với Claude Code cơ bản", 
+            videoId: "19JajlTlB-hN43OOUPvtEH7RbX46NloiG", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🤖 <b>Sức mạnh của Claude Code!</b> Khám phá công cụ AI coding thế hệ mới từ Anthropic, nổi tiếng với khả năng suy luận logic và viết code cực kỳ sạch sẽ.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Giới thiệu Claude Code:</b> Cài đặt và tìm hiểu các tính năng cơ bản, sự khác biệt so với Cursor.<br>
+                - <b>Làm việc qua CLI:</b> Tương tác với Claude trực tiếp từ Terminal để tự động hóa các tác vụ phức tạp.<br>
+                - <b>Nâng cấp dự án:</b> Tiếp tục sử dụng Claude Code để hoàn thiện và tối ưu hóa ứng dụng web full-stack của bạn.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/14Nynx9tWH78rsUXZOPerkbvgCb1sp9Oa/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 6</a></p>
+            </div>`
+        },
+        { 
+            id: 7, 
+            title: "Buổi 7: Vibe Code với Claude Code nâng cao: mobile app", 
+            videoId: "10odUYwvd17kLG2leMty_WjtQIGEYtlJa", 
+            desc: `<div style="line-height: 1.6;">
+                <p>📱 <b>Chinh phục Mobile App với AI!</b> Mang ý tưởng của bạn lên App Store và Google Play bằng cách tận dụng khả năng viết code đa nền tảng của Claude.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Môi trường Mobile:</b> Chuẩn bị môi trường phát triển ứng dụng di động (React Native/Expo hoặc Flutter).<br>
+                - <b>Xây dựng Mobile App:</b> Prompting Claude để tạo ra ứng dụng di động với đầy đủ chức năng, logic và điều hướng.<br>
+                - <b>Tips &amp; Tricks:</b> Kỹ thuật xử lý các lỗi đặc thù trên môi trường mobile với Claude Code.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1Lcn5czwJQA_p1cFUogPX05fgAqyzvKaq/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 7</a></p>
+            </div>`
+        },
+        { 
+            id: 8, 
+            title: "Buổi 8: Vibe Design", 
+            videoId: "1EYiD4UNrOy9fMIoolHRDESbIHx61aMGP", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🎨 <b>Thổi hồn vào sản phẩm với Vibe Design!</b> Một sản phẩm tốt không chỉ chạy được mà còn phải có UI/UX mượt mà, chuyên nghiệp và thân thiện.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Nguyên lý UI/UX:</b> Các quy tắc cơ bản và cách học tập từ những thiết kế nổi tiếng đã thành công.<br>
+                - <b>Vibe Design với Figma:</b> Phác thảo ý tưởng nhanh, clone và tùy biến thiết kế cho ứng dụng của mình.<br>
+                - <b>Từ Design ra Code:</b> Sử dụng Cursor/Claude và các MCP tools để biến giao diện thiết kế thành code frontend chuẩn xác.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1v2EH1Rmi5Nr_bfVbU7ilhFYmTBlZ3IMd/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 8</a></p>
+                <br>
+            </div>`
+        },
+        { 
+            id: 9, 
+            title: "Buổi 9: Vibe Test", 
+            videoId: "1ddhQYrh-4nFl_71uaoXe7dfkdDiSbPGr", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🛡️ <b>Đảm bảo chất lượng tuyệt đối!</b> Đừng để sản phẩm đầy lỗi khi ra mắt. Hãy để AI giúp bạn kiểm thử mọi ngóc ngách của ứng dụng.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Test-First Driven với AI:</b> Quy trình kiểm soát chất lượng tự động, bắt lỗi trước khi chúng xảy ra.<br>
+                - <b>Tự động sinh Test:</b> Yêu cầu AI viết Unit test, Integration test và UI testing tự động cho dự án.<br>
+                - <b>Review &amp; Refactor:</b> Nhờ AI đánh giá chất lượng mã nguồn, tối ưu hóa hiệu suất và bảo mật.</p>
+                <br>
+                <p>📚 <b>Slide tài liệu:</b> <a href="https://drive.google.com/file/d/1JKd8ZeXmj_iF7ENMTQ-0PRro5XyD1jaQ/view?usp=drive_link" target="_blank" style="color:#6366f1; text-decoration: underline;">Link Slide Buổi 9</a></p>
+                <br>
+                <p><b>Bài tập về nhà:</b><br>
+                - Hoàn thiện 1 trong các dự án đã học trong khóa học (từ bài 4)<br>
+                - Hoặc tự làm một dự án của chính mình<br>
+                - Nộp sản phẩm: Bản Word gồm mô tả qua về sản phẩm (vài ảnh minh họa) và link Github mã nguồn (Nếu file Readme của Github đã mô tả và có ảnh minh họa rồi thì chỉ cần link Github)<br>
+                <br>
+                <p>📝 <b>Nộp bài tập:</b> <a href="https://drive.google.com/drive/folders/1-Gb96rXxkEd170iPdgGJ5scyImyOSsN9?usp=drive_link" target="_blank" style="color:#10b981; text-decoration: underline;">Nộp link Google Docs/Slides tại đây</a></p>
+            </div>`
+        },
+        { 
+            id: 10, 
+            title: "Buổi 10: Demo Vibe Project", 
+            videoId: "1CalYP7GlNv0kr9Z4mES0IxoTEc7HLCRJ", 
+            desc: `<div style="line-height: 1.6;">
+                <p>🏆 <b>Bảo vệ và vinh danh dự án (Demo Day)!</b> Đây là khoảnh khắc bạn trình làng MVP do chính mình tạo ra - từ số 0 đến sản phẩm thực tế chỉ sau 10 buổi học.</p>
+                <p><b>Nội dung chính:</b><br>
+                - <b>Trình bày dự án:</b> Show case sản phẩm Web/Mobile App hoàn chỉnh của bạn trước lớp.<br>
+                - <b>Feedback chuyên gia:</b> Nhận nhận xét, góp ý tối ưu sản phẩm từ giảng viên và các học viên khác.<br>
+                - <b>Bước đi tiếp theo:</b> Hướng dẫn đưa dự án thực tế vào thị trường, tiếp tục duy trì và phát triển sản phẩm với AI.</p>
+            </div>`
+        }
+    ];
+
+    // =====================================================
+    // STATE VARIABLES
+    // =====================================================
+    const TOTAL_LESSONS = lessons.length; // 11
+    const STORAGE_KEY   = 'vibecoding_progress'; // ← Đã đổi từ 'python_progress'
+    const SESSION_KEY   = 'logged_name';
+
+    let currentUnlocked  = 1;    // Bao nhiêu bài đã mở khóa (1-based: 1 = chỉ bài đầu)
+    let activeLessonIndex = 0;   // Index trong mảng lessons (0-based)
+
+    // Rate limiting
+    let loginAttempts = 0;
+    let lockoutUntil  = 0;
+    let lockoutTimer  = null;
+
+    // =====================================================
+    // LOGIN LOGIC
+    // =====================================================
+    function handleManualLogin() {
+        // Kiểm tra lockout
+        if (Date.now() < lockoutUntil) return;
+
+        const n = document.getElementById('login-name').value.trim();
+        const e = document.getElementById('login-email').value.trim();
+        const p = document.getElementById('login-pass').value;
+
+        const user = VALID_USERS.find(u => u.name === n && u.email === e && u.pass === p);
+
+        if (user) {
+            loginAttempts = 0;
+            localStorage.setItem(SESSION_KEY, user.name);
+            showMainContent(user.name);
+        } else {
+            loginAttempts++;
+            showLoginError();
+
+            // Khóa tạm 30 giây sau 5 lần sai
+            if (loginAttempts >= 5) {
+                lockoutUntil = Date.now() + 30000;
+                loginAttempts = 0;
+                document.getElementById('login-btn').disabled = true;
+                document.getElementById('lockout-msg').classList.remove('hidden');
+                startLockoutCountdown(30);
+            }
+
+            // Shake animation on login box
+            const box = document.getElementById('login-error').closest('.bg-white');
+            box.classList.add('shake');
+            setTimeout(() => box.classList.remove('shake'), 400);
+        }
     }
-];
 
+    function showLoginError() {
+        const err = document.getElementById('login-error');
+        err.classList.remove('hidden');
+        setTimeout(() => err.classList.add('hidden'), 3000);
+    }
 
-//==============================
+    function startLockoutCountdown(seconds) {
+        document.getElementById('lockout-timer').textContent = seconds;
+        clearInterval(lockoutTimer);
+        lockoutTimer = setInterval(() => {
+            seconds--;
+            document.getElementById('lockout-timer').textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(lockoutTimer);
+                document.getElementById('login-btn').disabled = false;
+                document.getElementById('lockout-msg').classList.add('hidden');
+                lockoutUntil = 0;
+            }
+        }, 1000);
+    }
 
-        let currentUnlocked = 1;
-        let activeLessonId = 1;
-
-        // Hàm hiển thị giao diện không cần load lại trang
-        function showMainContent(userName) {
-            document.getElementById('login-overlay').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('display-user-name').innerText = userName;
-            
-            // Khôi phục tiến độ nếu có trong bộ nhớ
-            const saved = localStorage.getItem('python_progress');
-            if (saved) currentUnlocked = parseInt(saved);
-            
-            renderLessons();
-            loadVideo(1); // Mặc định mở bài 1
+    function togglePassword() {
+        const input = document.getElementById('login-pass');
+        const icon  = document.getElementById('eye-icon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-lucide', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-lucide', 'eye');
         }
+        lucide.createIcons();
+    }
 
-        function handleManualLogin() {
-            const n = document.getElementById('login-name').value;
-            const e = document.getElementById('login-email').value;
-            const p = document.getElementById('login-pass').value;
-            
-            const user = VALID_USERS.find(u => u.name === n && u.email === e && u.pass === p);
-            
-            if (user) {
-                // Lưu trạng thái đăng nhập vào bộ nhớ trình duyệt
-                localStorage.setItem('logged_name', user.name);
-                showMainContent(user.name);
+    // =====================================================
+    // MAIN APP LOGIC
+    // =====================================================
+    function showMainContent(userName) {
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('display-user-name').innerText = userName;
+
+        // Khôi phục tiến độ đã lưu
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) currentUnlocked = Math.min(parseInt(saved), TOTAL_LESSONS);
+
+        renderLessons();
+        loadLesson(0); // Mặc định mở bài đầu tiên
+    }
+
+    function renderLessons() {
+        const container = document.getElementById('lesson-list');
+        container.innerHTML = '';
+
+        lessons.forEach((l, idx) => {
+            const isLocked    = idx >= currentUnlocked;
+            const isCompleted = idx < currentUnlocked - 1;
+            const isActive    = idx === activeLessonIndex;
+
+            const div = document.createElement('div');
+            div.className = `p-3 rounded-xl border flex items-center gap-3 transition-all
+                ${isLocked ? 'locked border-slate-100 cursor-default'
+                    : isActive ? 'active-lesson cursor-pointer'
+                    : 'bg-white border-slate-200 hover:border-indigo-300 cursor-pointer'}`;
+
+            if (!isLocked) div.onclick = () => loadLesson(idx);
+
+            // Badge icon/number
+            let badgeBg = isLocked ? 'bg-slate-200 text-slate-400' : 'bg-indigo-600 text-white shadow-sm';
+            let badgeContent;
+            if (isLocked) {
+                badgeContent = '<i data-lucide="lock" class="w-3 h-3"></i>';
+            } else if (isCompleted && !isActive) {
+                badgeContent = '<i data-lucide="check" class="w-3 h-3"></i>';
+                badgeBg = 'bg-emerald-500 text-white';
             } else {
-                const err = document.getElementById('login-error');
-                err.classList.remove('hidden');
-                setTimeout(() => err.classList.add('hidden'), 3000);
+                badgeContent = String(l.id);
             }
+
+            div.innerHTML = `
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] shrink-0 ${badgeBg}">
+                    ${badgeContent}
+                </div>
+                <div class="flex-1 font-semibold leading-snug ${isActive ? 'text-indigo-700' : isLocked ? 'text-slate-400' : 'text-slate-700'}">
+                    ${l.title}
+                </div>
+            `;
+            container.appendChild(div);
+        });
+
+        updateHeaderProgress();
+        lucide.createIcons();
+    }
+
+    function loadLesson(idx) {
+        if (idx < 0 || idx >= TOTAL_LESSONS) return;
+        activeLessonIndex = idx;
+        const lesson = lessons[idx];
+
+        // Hiện loading, reset src trước khi load
+        document.getElementById('video-loading').style.opacity = '1';
+        document.getElementById('video-loading').style.display = 'flex';
+        document.getElementById('main-video').src = '';
+
+        setTimeout(() => {
+            document.getElementById('main-video').src =
+                `https://drive.google.com/file/d/${lesson.videoId}/preview`;
+        }, 80);
+
+        // Ẩn loading sau 3s (fallback nếu iframe không fire event)
+        setTimeout(() => {
+            document.getElementById('video-loading').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('video-loading').style.display = 'none';
+            }, 200);
+        }, 1000);
+
+        // Cập nhật tiêu đề, mô tả, counter
+        document.getElementById('current-lesson-title').innerText = lesson.title;
+        document.getElementById('current-lesson-desc').innerHTML  = lesson.desc;
+        document.getElementById('lesson-counter').innerText = `Buổi ${idx + 1} / ${TOTAL_LESSONS}`;
+
+        // Cập nhật nút "Hoàn thành"
+        const isLastLesson = (idx === TOTAL_LESSONS - 1);
+        const completeBtn  = document.getElementById('complete-btn');
+        const completeTxt  = document.getElementById('complete-btn-text');
+        if (isLastLesson) {
+            completeTxt.textContent = 'Hoàn thành khóa học! 🏆';
+            completeBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            completeBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        } else {
+            completeTxt.textContent = 'Hoàn thành & Sang bài tiếp theo';
+            completeBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+            completeBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
         }
 
-        function renderLessons() {
-            const container = document.getElementById('lesson-list');
-            container.innerHTML = '';
-            lessons.forEach(l => {
-                const isLocked = l.id > currentUnlocked;
-                const isActive = l.id === activeLessonId;
-                const div = document.createElement('div');
-                div.className = `p-3 rounded-xl border flex items-center gap-3 transition-all cursor-pointer ${isLocked ? 'locked border-slate-100' : isActive ? 'active-lesson' : 'bg-white border-slate-200 hover:border-indigo-300'}`;
-                div.onclick = () => !isLocked && loadVideo(l.id);
-                div.innerHTML = `
-                    <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-[11px] ${isLocked ? 'bg-slate-200 text-slate-400' : 'bg-indigo-600 text-white shadow-sm'}">
-                        ${isLocked ? '<i data-lucide="lock" class="w-3 h-3"></i>' : l.id}
-                    </div>
-                    <div class="flex-1 font-bold ${isActive ? 'text-indigo-700' : 'text-slate-700'}">${l.title}</div>
-                    ${l.id < currentUnlocked ? '<i data-lucide="check" class="text-emerald-500 w-4 h-4"></i>' : ''}
-                `;
-                container.appendChild(div);
-            });
+        // Nút Bài trước
+        document.getElementById('prev-btn').disabled = (idx === 0);
+
+        // Scroll sidebar đến bài hiện tại
+        renderLessons();
+        scrollActiveLessonIntoView();
+    }
+
+    function scrollActiveLessonIntoView() {
+        const list  = document.getElementById('lesson-list');
+        const items = list.querySelectorAll('div[class*="p-3"]');
+        if (items[activeLessonIndex]) {
+            items[activeLessonIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    }
+
+    function completeLesson() {
+        // Mở khóa bài tiếp theo nếu đây là bài ở ranh giới hiện tại
+        if (activeLessonIndex === currentUnlocked - 1 && currentUnlocked < TOTAL_LESSONS) {
+            currentUnlocked++;
+            localStorage.setItem(STORAGE_KEY, currentUnlocked);
+        }
+
+        const nextIdx = activeLessonIndex + 1;
+        if (nextIdx < TOTAL_LESSONS) {
+            loadLesson(nextIdx);
+        } else {
+            // Đã hoàn thành buổi cuối
             updateHeaderProgress();
-            lucide.createIcons();
+            document.getElementById('congrats-overlay').classList.remove('hidden');
         }
+    }
 
-        function loadVideo(id) {
-            activeLessonId = id;
-            const lesson = lessons.find(l => l.id === id);
-            document.getElementById('main-video').src = `https://drive.google.com/file/d/${lesson.videoId}/preview`;
-            document.getElementById('current-lesson-title').innerText = lesson.title;
-            document.getElementById('current-lesson-desc').innerHTML = lesson.desc;
-            renderLessons();
+    function prevLesson() {
+        if (activeLessonIndex > 0) loadLesson(activeLessonIndex - 1);
+    }
+
+    function updateHeaderProgress() {
+        const completed = Math.max(currentUnlocked - 1, 0);
+        const percent   = (completed / TOTAL_LESSONS) * 100;
+        document.getElementById('progress-bar').style.width  = `${percent}%`;
+        document.getElementById('progress-text').innerText   = `${completed}/${TOTAL_LESSONS}`;
+    }
+
+    function handleLogout() {
+        localStorage.removeItem(SESSION_KEY);
+        document.getElementById('main-content').classList.add('hidden');
+        document.getElementById('login-overlay').classList.remove('hidden');
+        // Reset form
+        document.getElementById('login-name').value  = '';
+        document.getElementById('login-email').value = '';
+        document.getElementById('login-pass').value  = '';
+        // Reset state
+        currentUnlocked    = 1;
+        activeLessonIndex  = 0;
+        lucide.createIcons();
+    }
+
+    function resetProgress() {
+        if (confirm('Bạn có chắc muốn xóa toàn bộ tiến độ học?\nTất cả các bài học sẽ bị khóa lại từ đầu.')) {
+            localStorage.removeItem(STORAGE_KEY);
+            currentUnlocked   = 1;
+            activeLessonIndex = 0;
+            loadLesson(0);
         }
+    }
 
-        function completeLesson() {
-            const nextId = activeLessonId + 1;
-            if (activeLessonId === currentUnlocked && currentUnlocked < 20) {
-                currentUnlocked++;
-                localStorage.setItem('python_progress', currentUnlocked); // Lưu tiến độ ngay lập tức
-            }
-            if (nextId <= 20) loadVideo(nextId);
+    function toggleSidebar() {
+        const panel = document.getElementById('sidebar-panel');
+        const txt   = document.getElementById('sidebar-toggle-text');
+        const isOpen = panel.classList.toggle('open');
+        txt.textContent = isOpen ? 'Ẩn lộ trình bài học ▴' : 'Xem lộ trình bài học ▾';
+    }
+
+    // =====================================================
+    // KHỞI ĐỘNG - Tự động đăng nhập nếu session còn tồn tại
+    // (FIX: window.onload bị cắt ở file gốc)
+    // =====================================================
+    window.onload = function () {
+        lucide.createIcons(); // Render icons trên login screen
+        const savedName = localStorage.getItem(SESSION_KEY);
+        if (savedName) {
+            showMainContent(savedName); // Tự khôi phục đăng nhập, không cần reload
         }
-
-        function updateHeaderProgress() {
-            const percent = ((currentUnlocked - 1) / 20) * 100;
-            document.getElementById('progress-bar').style.width = `${percent}%`;
-            document.getElementById('progress-text').innerText = `${currentUnlocked}/20`;
-        }
-
-        function handleLogout() {
-            localStorage.removeItem('logged_name');
-            // Quay về màn hình đăng nhập bằng cách ẩn/hiện thay vì reload
-            document.getElementById('main-content').classList.add('hidden');
-            document.getElementById('login-overlay').classList.remove('hidden');
-        }
-
-        function resetProgress() {
-            if(confirm("Làm mới lộ trình học?")) {
-                localStorage.removeItem('python_progress');
-                currentUnlocked = 1;
-                loadVideo(1);
-            }
-        }
-
-        // --- KHỐI MÃ QUAN TRỌNG ĐỂ KHÔNG BỊ THOÁT KHI F5 ---
-        window.onload = function() {
-            const savedName = localStorage.getItem('logged_name');
-            if (savedName) {
-                showMainContent(savedName);
-            }
-            lucide.createIcons();
-        };
-    </script>
+    };
+</script>
 </body>
-
 </html>
-
-
-
-
-
